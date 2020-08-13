@@ -3,7 +3,7 @@ from cffi import FFI
 ffibuilder = FFI()
 
 ffibuilder.cdef(
-    "void mandelbrot(long long *inside, double *outside, int width, int height, double center_x, double center_y, double zoom, int num_iterations);"
+    "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations);"
 )
 
 ffibuilder.set_source(
@@ -53,11 +53,11 @@ ffibuilder.set_source(
         eval_classic(inside, outside, x*x - y*y + cx, 2*x*y + cy, cx, cy, num_iterations-1);
     }
 
-    void mandelbrot(long long *inside, double *outside, int width, int height, double center_x, double center_y, double zoom, int num_iterations) {
+    void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations) {
         zoom = pow(2, -zoom) / height;
         for (size_t i = 0; i < width * height; i++) {
-            double x = (i % width);
-            double y = (i / width);
+            double x = (i % width) + offset_x;
+            double y = (i / width) + offset_y;
             x = (2 * x - width) * zoom + center_x;
             y = (2 * y - height) * zoom + center_y;
 
