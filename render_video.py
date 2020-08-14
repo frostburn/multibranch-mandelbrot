@@ -38,44 +38,36 @@ def do_render(args, writer):
         t = n / (args.num_frames - 1)
         t = 1 - t
         zoom = t * 34.5 - 2
-        iter_offset = int(t*128)
-        mu = t*128 - iter_offset
-        max_iter = 128 + iter_offset
+        max_iter = 256
         inside = zeros((height, width))
         outside = zeros((height, width))
 
-        def accumulate_subpixels(offset_x, offset_y, forward):
+        def accumulate_subpixels(offset_x, offset_y):
             nonlocal inside, outside
             inside_buf = ffi.new("long long[]", width * height)
             outside_buf = ffi.new("double[]", width * height)
-            num_iter = max_iter + forward
-            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, num_iter, inside_cutoff, outside_cutoff)
-            if forward:
-                kappa = mu
-            else:
-                kappa = 1-mu
+            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, max_iter, inside_cutoff, outside_cutoff)
             inside_lock.acquire()
-            inside += array(list(inside_buf)).reshape(height, width) * kappa
+            inside += array(list(inside_buf)).reshape(height, width)
             inside_lock.release()
             outside_lock.acquire()
-            outside += array(list(outside_buf)).reshape(height, width) * kappa
+            outside += array(list(outside_buf)).reshape(height, width)
             outside_lock.release()
 
         ts = []
         offsets = arange(args.anti_aliasing) / args.anti_aliasing
-        for k in (0, 1):
-            for i in offsets:
-                for j in offsets:
-                    ts.append(Thread(target=accumulate_subpixels, args=(i, j, k)))
-                    ts[-1].start()
+        for i in offsets:
+            for j in offsets:
+                ts.append(Thread(target=accumulate_subpixels, args=(i, j)))
+                ts[-1].start()
         for t in ts:
             t.join()
 
         inside /= args.anti_aliasing**2
         outside /= args.anti_aliasing**2
 
-        red = (2 + sin(inside*0.0723123) + cos(outside*0.93432234))*0.25
-        green = (1+cos(inside*0.1))*0.5
+        red = (2 + sin(inside*0.00723123) + cos(outside*0.93432234))*0.25
+        green = (1+cos(inside*0.01))*0.5
         blue = (1+sin(outside*0.325))*0.5
 
         envelope = 1 - inside / inside_cutoff
