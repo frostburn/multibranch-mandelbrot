@@ -2,7 +2,7 @@ import argparse
 import imageio
 import progressbar
 from pylab import *
-from _routines import ffi, lib
+from mandelbrot import mandelbrot
 from threading import Thread, Lock
 
 RESOLUTIONS = {
@@ -30,45 +30,13 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 
 def do_render(args, writer):
-    width, height = args.width, args.height
-    max_iter = 128
     inside_cutoff = 2**11
-    outside_cutoff = 0
-    inside_lock = Lock()
-    outside_lock = Lock()
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
         t = 1 - t
         zoom = t * 34.5 - 2
-        inside = zeros((height, width))
-        outside = zeros((height, width))
 
-        def accumulate_subpixels(offset_x, offset_y):
-            nonlocal inside, outside
-            inside_buf = ffi.new("long long[]", width * height)
-            outside_buf = ffi.new("double[]", width * height)
-            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, 2, max_iter, inside_cutoff, outside_cutoff)
-            inside_arr = array(list(inside_buf)).reshape(height, width)
-            outside_arr = array(list(outside_buf)).reshape(height, width)
-            outside_arr *= (inside_arr == 0)
-            inside_lock.acquire()
-            inside += inside_arr
-            inside_lock.release()
-            outside_lock.acquire()
-            outside += outside_arr
-            outside_lock.release()
-
-        ts = []
-        offsets = arange(args.anti_aliasing) / args.anti_aliasing
-        for i in offsets:
-            for j in offsets:
-                ts.append(Thread(target=accumulate_subpixels, args=(i, j)))
-                ts[-1].start()
-        for t in ts:
-            t.join()
-
-        inside /= args.anti_aliasing**2
-        outside /= args.anti_aliasing**2
+        inside, outside = mandelbrot(args.width, args.height, 1.3999, 0.2701, zoom, 2.5, 128, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
 
         red = (2 + sin(inside*0.00723123) + cos(outside*1.93432234))*0.25
         green = (1.5+cos(inside*0.01) + sin(outside*1.23123 + 1)*0.5)*0.333333333333333
