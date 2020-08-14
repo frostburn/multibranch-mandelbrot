@@ -3,15 +3,22 @@ from cffi import FFI
 ffibuilder = FFI()
 
 ffibuilder.cdef(
-    "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations);"
+    "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations, int inside_cutoff, int outside_cutoff);"
 )
 
 ffibuilder.set_source(
     "_routines",
     """
-    void eval(long long *inside, double *outside, double x, double y, double cx, double cy, int num_iterations) {
+    void eval(long long *inside, double *outside, long long *outside_counter, double x, double y, double cx, double cy, int num_iterations, int inside_cutoff, int outside_cutoff) {
+        if (inside_cutoff && inside[0] >= inside_cutoff) {
+            return;
+        }
+        if (outside_cutoff && outside_counter[0] >= outside_cutoff) {
+            return;
+        }
         double r = sqrt(x*x + y*y);
         if (r >= 128) {
+            outside_counter[0] += 1;
             double v = num_iterations + log(log(r))/log(2.5);
             if (v < outside[0]) {
                 outside[0] = v;
@@ -36,11 +43,11 @@ ffibuilder.set_source(
         r = x;
         x = x*sx - y*sy;
         y = r*sy + y*sx;
-        eval(inside, outside, cx + x, cy + y, cx, cy, num_iterations-1);
-        eval(inside, outside, cx - x, cy - y, cx, cy, num_iterations-1);
+        eval(inside, outside, outside_counter, cx + x, cy + y, cx, cy, num_iterations-1, inside_cutoff, outside_cutoff);
+        eval(inside, outside, outside_counter, cx - x, cy - y, cx, cy, num_iterations-1, inside_cutoff, outside_cutoff);
     }
 
-    void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations) {
+    void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations, int inside_cutoff, int outside_cutoff) {
         zoom = pow(2, -zoom) / height;
         for (size_t i = 0; i < width * height; i++) {
             double x = (i % width) + offset_x;
@@ -50,7 +57,8 @@ ffibuilder.set_source(
 
             inside[i] = 0;
             outside[i] = INFINITY;
-            eval(inside+i, outside+i, x, y, x, y, num_iterations);
+            long long outside_counter = 0;
+            eval(inside+i, outside+i, &outside_counter, x, y, x, y, num_iterations, inside_cutoff, outside_cutoff);
             if (outside[i] == INFINITY) {
                 outside[i] = 0;
             }

@@ -30,15 +30,17 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 
 def do_render(args, writer):
+    inside_cutoff = 2**12
+    outside_cutoff = 2**12
     inside_lock = Lock()
     outside_lock = Lock()
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
         t = 1 - t
         zoom = t * 34.5 - 2
-        iter_offset = int(t*50)
-        mu = t*50 - iter_offset
-        max_iter = 13 + iter_offset
+        iter_offset = int(t*128)
+        mu = t*128 - iter_offset
+        max_iter = 128 + iter_offset
         inside = zeros((height, width))
         outside = zeros((height, width))
 
@@ -47,7 +49,7 @@ def do_render(args, writer):
             inside_buf = ffi.new("long long[]", width * height)
             outside_buf = ffi.new("double[]", width * height)
             num_iter = max_iter + forward
-            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, num_iter)
+            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, num_iter, inside_cutoff, outside_cutoff)
             if forward:
                 kappa = mu
             else:
@@ -76,7 +78,7 @@ def do_render(args, writer):
         green = (1+cos(inside*0.1))*0.5
         blue = (1+sin(outside*0.325))*0.5
 
-        envelope = exp(-0.05*inside)
+        envelope = 1 - inside / inside_cutoff
         red *= envelope
         green *= envelope
         blue *= envelope
