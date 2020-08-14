@@ -30,15 +30,16 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 
 def do_render(args, writer):
-    inside_cutoff = 2**12
-    outside_cutoff = 2**12
+    width, height = args.width, args.height
+    max_iter = 128
+    inside_cutoff = 2**11
+    outside_cutoff = 0
     inside_lock = Lock()
     outside_lock = Lock()
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
         t = 1 - t
         zoom = t * 34.5 - 2
-        max_iter = 256
         inside = zeros((height, width))
         outside = zeros((height, width))
 
@@ -46,12 +47,15 @@ def do_render(args, writer):
             nonlocal inside, outside
             inside_buf = ffi.new("long long[]", width * height)
             outside_buf = ffi.new("double[]", width * height)
-            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, max_iter, inside_cutoff, outside_cutoff)
+            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, 2, max_iter, inside_cutoff, outside_cutoff)
+            inside_arr = array(list(inside_buf)).reshape(height, width)
+            outside_arr = array(list(outside_buf)).reshape(height, width)
+            outside_arr *= (inside_arr == 0)
             inside_lock.acquire()
-            inside += array(list(inside_buf)).reshape(height, width)
+            inside += inside_arr
             inside_lock.release()
             outside_lock.acquire()
-            outside += array(list(outside_buf)).reshape(height, width)
+            outside += outside_arr
             outside_lock.release()
 
         ts = []
@@ -66,9 +70,9 @@ def do_render(args, writer):
         inside /= args.anti_aliasing**2
         outside /= args.anti_aliasing**2
 
-        red = (2 + sin(inside*0.00723123) + cos(outside*0.93432234))*0.25
-        green = (1+cos(inside*0.01))*0.5
-        blue = (1+sin(outside*0.325))*0.5
+        red = (2 + sin(inside*0.00723123) + cos(outside*1.93432234))*0.25
+        green = (1.5+cos(inside*0.01) + sin(outside*1.23123 + 1)*0.5)*0.333333333333333
+        blue = (1+sin(outside*0.725))*0.5
 
         envelope = 1 - inside / inside_cutoff
         red *= envelope
