@@ -30,37 +30,47 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 
 def do_render(args, writer):
-    lock = Lock()
+    inside_lock = Lock()
+    outside_lock = Lock()
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
-        zoom = t * 34 - 2
+        t = 1 - t
+        zoom = t * 34.5 - 2
         iter_offset = int(t*50)
+        mu = t*50 - iter_offset
         max_iter = 13 + iter_offset
         inside = zeros((height, width))
         outside = zeros((height, width))
-        def accumulate_subpixels(offset_x, offset_y):
+
+        def accumulate_subpixels(offset_x, offset_y, forward):
             nonlocal inside, outside
             inside_buf = ffi.new("long long[]", width * height)
             outside_buf = ffi.new("double[]", width * height)
-            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, max_iter)
-            lock.acquire()
-            inside += array(list(inside_buf)).reshape(height, width)
-            outside += array(list(outside_buf)).reshape(height, width)
-            lock.release()
+            num_iter = max_iter + forward
+            lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, 1.3999, 0.2701, zoom, num_iter)
+            if forward:
+                kappa = mu
+            else:
+                kappa = 1-mu
+            inside_lock.acquire()
+            inside += array(list(inside_buf)).reshape(height, width) * kappa
+            inside_lock.release()
+            outside_lock.acquire()
+            outside += array(list(outside_buf)).reshape(height, width) * kappa
+            outside_lock.release()
 
         ts = []
         offsets = arange(args.anti_aliasing) / args.anti_aliasing
-        for i in offsets:
-            for j in offsets:
-                ts.append(Thread(target=accumulate_subpixels, args=(i, j)))
-                ts[-1].start()
+        for k in (0, 1):
+            for i in offsets:
+                for j in offsets:
+                    ts.append(Thread(target=accumulate_subpixels, args=(i, j, k)))
+                    ts[-1].start()
         for t in ts:
             t.join()
 
         inside /= args.anti_aliasing**2
         outside /= args.anti_aliasing**2
-
-        outside -= iter_offset
 
         red = (2 + sin(inside*0.0723123) + cos(outside*0.93432234))*0.25
         green = (1+cos(inside*0.1))*0.5

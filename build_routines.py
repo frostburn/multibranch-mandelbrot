@@ -20,7 +20,6 @@ ffibuilder.set_source(
         }
         if (num_iterations == 0) {
             inside[0] += 1;
-            outside[0] = 0;
             return;
         }
         // Square root components
@@ -41,18 +40,6 @@ ffibuilder.set_source(
         eval(inside, outside, cx - x, cy - y, cx, cy, num_iterations-1);
     }
 
-    void eval_classic(long long *inside, double *outside, double x, double y, double cx, double cy, int num_iterations) {
-        if (x*x + y*y > 128*128) {
-            outside[0] = num_iterations;
-            return;
-        }
-        if (num_iterations == 0) {
-            inside[0] = 1;
-            return;
-        }
-        eval_classic(inside, outside, x*x - y*y + cx, 2*x*y + cy, cx, cy, num_iterations-1);
-    }
-
     void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int num_iterations) {
         zoom = pow(2, -zoom) / height;
         for (size_t i = 0; i < width * height; i++) {
@@ -62,8 +49,11 @@ ffibuilder.set_source(
             y = (2 * y - height) * zoom + center_y;
 
             inside[i] = 0;
-            outside[i] = num_iterations+1;
+            outside[i] = INFINITY;
             eval(inside+i, outside+i, x, y, x, y, num_iterations);
+            if (outside[i] == INFINITY) {
+                outside[i] = 0;
+            }
         }
     }
     """
