@@ -19,6 +19,14 @@ RESOLUTIONS = {
 }
 
 
+def color_map(inside, outside, inside_cutoff):
+    outside = array([0.5 + 0.5*sin(0.8*outside), 0.5 + 0.4*cos(outside*0.123123), 0.3 + 0.3*sin(0.232*outside + 1)])
+    outside *= (inside == 0)
+    envelope = sqrt((1 - inside / inside_cutoff))*(inside > 0)
+    inside = array([0.5 + 0.5*cos(inside*0.1), 0.3 + 0.4*sin(inside*0.2312), 0.3 + 0.5*cos(inside*0.5434+1)]) * envelope
+    return inside + outside
+
+
 def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
     if dither:
         rgb = [channel + random(channel.shape)*dither for channel in rgb]
@@ -36,18 +44,9 @@ def do_render(args, writer):
         t = 1 - t
         zoom = t * 34.5 - 2
 
-        inside, outside = mandelbrot(args.width, args.height, 1.3999, 0.2701, zoom, 2.5, 128, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
+        image = mandelbrot(args.width, args.height, 1.3999, 0.2701, zoom, 2.5, 128, color_map=color_map, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
 
-        red = (2 + sin(inside*0.00723123) + cos(outside*1.93432234))*0.25
-        green = (1.5+cos(inside*0.01) + sin(outside*1.23123 + 1)*0.5)*0.333333333333333
-        blue = (1+sin(outside*0.725))*0.5
-
-        envelope = 1 - inside / inside_cutoff
-        red *= envelope
-        green *= envelope
-        blue *= envelope
-
-        frame = make_video_frame([red, green, blue], indexing=None)
+        frame = make_video_frame(image, indexing=None)
         writer.append_data(frame)
 
 
