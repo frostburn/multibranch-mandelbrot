@@ -1,9 +1,11 @@
 import argparse
+from threading import Thread, Lock
 import imageio
 import progressbar
 from pylab import *
+from coloring import red_lavender
 from mandelbrot import mandelbrot
-from threading import Thread, Lock
+
 
 RESOLUTIONS = {
     "2160p": (3840, 2160),
@@ -19,14 +21,6 @@ RESOLUTIONS = {
 }
 
 
-def color_map(inside, outside, inside_cutoff):
-    outside = array([0.5 + 0.5*sin(0.8*outside), 0.5 + 0.4*cos(outside*0.123123), 0.3 + 0.3*sin(0.232*outside + 1)])
-    outside *= (inside == 0)
-    envelope = sqrt((1 - inside / inside_cutoff))*(inside > 0)
-    inside = array([0.5 + 0.5*cos(inside*0.1), 0.3 + 0.4*sin(inside*0.2312), 0.3 + 0.5*cos(inside*0.5434+1)]) * envelope
-    return inside + outside
-
-
 def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
     if dither:
         rgb = [channel + random(channel.shape)*dither for channel in rgb]
@@ -39,12 +33,13 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 def do_render(args, writer):
     inside_cutoff = 2**11
+    color_map = red_lavender
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
-        t = 1 - t
-        zoom = t * 34.5 - 2
+        x, y = -0.11042608495193805, -1.2321253969758166
+        zoom = t * 44 - 2
 
-        image = mandelbrot(args.width, args.height, 1.3999, 0.2701, zoom, 2.5, 128, color_map=color_map, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
+        image = mandelbrot(args.width, args.height, x, y, zoom, 2.5, 128, color_map=color_map, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
 
         frame = make_video_frame(image, indexing=None)
         writer.append_data(frame)

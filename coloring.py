@@ -1,0 +1,23 @@
+from pylab import *
+
+def red_lavender(inside, outside, inside_cutoff):
+    outside = array([
+        0.1 + 0.2*sin(0.3*outside + 3) + 0.3 + 0.3*cos(0.01923*outside - 43),
+        0.1 + 0.2*cos(0.12*outside + 2.2) + 0.2 + 0.3*sin(0.0313238*outside + 0.12),
+        0.1 + 0.3*sin(0.232*outside + 1) + 0.4 + 0.4*cos(0.009328*outside - 1) + 0.125*cos(0.523*outside+7)**3
+    ]) * (inside == 0)
+    outside[1] = minimum(*outside)-0.15
+    outside[2] *= 1.2
+
+    outside *= 1.1
+    outside = clip(outside, 0, 1)**1.6
+
+    envelope = ((1 - inside / inside_cutoff))*(inside > 0)
+    inside = array([
+        0.1 + 0.1*cos(inside*0.05) + 0.4 + 0.4*sin(inside*0.01),
+        0.1 + 0.1*sin(inside*0.32312) + 0.2 + 0.4*sin(inside*0.01123) + 0.2*cos(0.3212-1)**5,
+        0.1 + 0.1*cos(inside*0.9434+1) + 0.3 + 0.4*cos(inside*0.01643-1)
+    ]) * envelope
+    inside *= 1.1
+    inside = clip(inside, 0, 1)
+    return inside + outside
