@@ -4,7 +4,7 @@ ffibuilder = FFI()
 
 ffibuilder.cdef(
     "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int outside_cutoff);"
-    "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff);"
+    "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double julia_cx, double julia_cy, int julia);"
 )
 
 ffibuilder.set_source(
@@ -113,7 +113,7 @@ ffibuilder.set_source(
     void eval_nonescaping(double *max_r2, double *phase, double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations) {
         double r = x*x + y*y;
         double theta = atan2(y, x);
-        if (r >= max_r2[0]) {
+        if ((exponent < 0 && r >= max_r2[0]) || (exponent >= 0 && r <= max_r2[0])) {
             max_r2[0] = r;
             phase[0] = theta;
         }
@@ -134,7 +134,7 @@ ffibuilder.set_source(
         }
     }
 
-    void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff) {
+    void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double julia_cx, double julia_cy, int julia) {
         if (denominator < 0) {
             denominator = -denominator;
             numerator = -numerator;
@@ -148,22 +148,35 @@ ffibuilder.set_source(
         for (size_t i = 0; i < num_samples; i++) {
             double x = in_x_out_inside[i];
             double y = in_y_out_outside[i];
+            double cx = x;
+            double cy = y;
+            if (julia) {
+                cx = julia_cx;
+                cy = julia_cy;
+            }
             if (exponent >= 1) {
                 in_x_out_inside[i] = 0;
                 in_y_out_outside[i] = INFINITY;
-                eval_generic(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, x, y, exponent, denominator, num_iterations, inside_cutoff);
+                eval_generic(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, inside_cutoff);
                 in_y_out_outside[i] -= log(log(128))/log(exponent);
                 if (in_y_out_outside[i] == INFINITY) {
                     in_y_out_outside[i] = 0;
                 }
             } else {
-                in_x_out_inside[i] = 0;  // Radius^2
-                eval_nonescaping(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, x, y, exponent, denominator, num_iterations);
+                // Radius^2
+                if (exponent < 0) {
+                    in_x_out_inside[i] = 0;
+                } else {
+                    in_x_out_inside[i] = INFINITY;
+                }
+                eval_nonescaping(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations);
                 in_x_out_inside[i] = sqrt(in_x_out_inside[i]);
             }
         }
         free(roots_of_unity);
     }
+
+
     """
 )
 
