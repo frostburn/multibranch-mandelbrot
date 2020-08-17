@@ -1,5 +1,6 @@
 from pylab import *
 
+
 def red_lavender(inside, outside, inside_cutoff):
     outside = array([
         0.1 + 0.2*sin(0.3*outside + 3) + 0.3 + 0.3*cos(0.01923*outside - 43),
@@ -21,3 +22,11 @@ def red_lavender(inside, outside, inside_cutoff):
     inside *= 1.1
     inside = clip(inside, 0, 1)
     return inside + outside
+
+
+def black_multi_edge(inside, outside, inside_cutoff):
+    return array([outside, outside, outside])**0.2
+
+
+def rainbow(r, phase, _):
+    return array([r * (1 + sin(phase)), r * (1 + sin(phase + 2*pi/3)), r * (1 + sin(phase + 3*pi/3))]) * 0.001
