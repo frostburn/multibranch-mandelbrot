@@ -36,7 +36,7 @@ def mandelbrot(width, height, x, y, zoom, exponent, max_iter, color_map, inside_
     return result
 
 
-def mandelbrot_generic(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, color_map, inside_cutoff=2048, anti_aliasing=2, julia_c=1j, julia=False):
+def mandelbrot_generic(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, color_map, inside_cutoff=2048, outside_offset=0.0, anti_aliasing=2, julia_c=1j, julia=False):
     lock = Lock()
 
     num_color_channels = 3
@@ -60,7 +60,7 @@ def mandelbrot_generic(width, height, center_x, center_y, zoom, rotation, numera
 
         x_buf = ffi.cast("double*", x.ctypes.data)
         y_buf = ffi.cast("double*", y.ctypes.data)
-        lib.mandelbrot_generic(x_buf, y_buf, width*height, numerator, denominator, max_iter, inside_cutoff, np.real(julia_c), np.imag(julia_c), julia)
+        lib.mandelbrot_generic(x_buf, y_buf, width*height, numerator, denominator, max_iter, inside_cutoff, outside_offset, np.real(julia_c), np.imag(julia_c), julia)
         inside = x
         outside = y
 

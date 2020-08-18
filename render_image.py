@@ -17,24 +17,24 @@ if __name__ == '__main__':
     # Instagram
     width, height = 108*10, 108*10
 
-    anti_aliasing = 4
-    max_iter = 10
+    anti_aliasing = 8
+    max_iter = 5
     # color_map = red_lavender
-    # color_map = black_multi_edge
+    color_map = black_multi_edge
     # color_map = rainbow
     # color_map = gray
     # color_map = sepia
-    color_map = subharmonics
+    # color_map = subharmonics
 
-    x, y = 0, 0
+    x, y = 0.11, 0
     zoom = -1
 
-    image = mandelbrot(width, height, x, y, zoom, 3.5, max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=1024, clip_outside=True)
-    # image = mandelbrot_generic(
-    #     width, height, x, y, zoom, 0,
-    #     7, 2,
-    #     max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=0,
-    #     julia_c=(randn() + randn()*1j), julia=False
-    # )
+    # image = mandelbrot(width, height, x, y, zoom, 3.5, max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=1024, clip_outside=True)
+    image = mandelbrot_generic(
+        width, height, x, y, zoom, 0,
+        5, 2,
+        max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=0, outside_offset=-1.5,
+        julia_c=(randn() + randn()*1j), julia=False
+    )
 
     imsave("/tmp/out.png", make_picture_frame(image))

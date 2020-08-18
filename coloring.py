@@ -34,7 +34,7 @@ def subharmonics(inside, outside, inside_cutoff):
     return inside + outside
 
 def black_multi_edge(inside, outside, inside_cutoff):
-    return array([outside, outside, outside])**0.2
+    return tanh(2.7*array([outside, outside, outside])**0.25)
 
 
 def rainbow(r, phase, _):

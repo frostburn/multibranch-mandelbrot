@@ -4,7 +4,7 @@ ffibuilder = FFI()
 
 ffibuilder.cdef(
     "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside);"
-    "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double julia_cx, double julia_cy, int julia);"
+    "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double outside_offset, double julia_cx, double julia_cy, int julia);"
 )
 
 ffibuilder.set_source(
@@ -73,13 +73,13 @@ ffibuilder.set_source(
         }
     }
 
-    void eval_generic(double *inside, double *outside, double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int inside_cutoff) {
+    void eval_generic(double *inside, double *outside, double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int inside_cutoff, double outside_offset) {
         if (inside_cutoff && inside[0] >= inside_cutoff) {
             return;
         }
         double r = x*x + y*y;
         if (r >= 128*128) {
-            double v = num_iterations + log(log(r)*0.5)/log(exponent);
+            double v = fabs(num_iterations + log(log(r)*0.5)/log(exponent) + outside_offset);
             if (v < outside[0]) {
                 outside[0] = v;
             }
@@ -98,7 +98,7 @@ ffibuilder.set_source(
                 inside, outside, roots_of_unity,
                 x*roots_of_unity[2*i] + y*roots_of_unity[2*i+1] + cx,
                 y*roots_of_unity[2*i] - x*roots_of_unity[2*i+1] + cy,
-                cx, cy, exponent, denominator, num_iterations-1, inside_cutoff
+                cx, cy, exponent, denominator, num_iterations-1, inside_cutoff, outside_offset
             );
         }
     }
@@ -127,7 +127,7 @@ ffibuilder.set_source(
         }
     }
 
-    void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double julia_cx, double julia_cy, int julia) {
+    void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double outside_offset, double julia_cx, double julia_cy, int julia) {
         if (denominator < 0) {
             denominator = -denominator;
             numerator = -numerator;
@@ -138,6 +138,8 @@ ffibuilder.set_source(
             roots_of_unity[2*i+1] = sin(i*2*M_PI/(double)denominator);
         }
         double exponent = numerator / (double) denominator;
+        double outside_placeholder = fabs(outside_offset);
+        outside_offset -= log(log(128))/log(exponent);
         for (size_t i = 0; i < num_samples; i++) {
             double x = in_x_out_inside[i];
             double y = in_y_out_outside[i];
@@ -150,10 +152,9 @@ ffibuilder.set_source(
             if (exponent >= 1) {
                 in_x_out_inside[i] = 0;
                 in_y_out_outside[i] = INFINITY;
-                eval_generic(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, inside_cutoff);
-                in_y_out_outside[i] -= log(log(128))/log(exponent);
+                eval_generic(in_x_out_inside+i, in_y_out_outside+i, roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, inside_cutoff, outside_offset);
                 if (in_y_out_outside[i] == INFINITY) {
-                    in_y_out_outside[i] = 0;
+                    in_y_out_outside[i] = outside_placeholder;
                 }
             } else {
                 // Radius^2
