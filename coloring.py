@@ -51,3 +51,8 @@ def sepia(inside, outside, inside_cutoff):
     inside = (array([inside, inside, inside]) * 0.0005)**0.1
 
     return bg - inside
+
+
+def creature(inside, outside, inside_cutoff):
+    inside = log(log(inside+1)+2)*0.98+0.95
+    return array([sin(15*inside) + cos(17*inside), cos(13*inside), sin(1+17*inside**2)+sin(19*inside)**5])*0.35+0.8
