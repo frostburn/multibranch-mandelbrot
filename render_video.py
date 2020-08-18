@@ -3,7 +3,7 @@ from threading import Thread, Lock
 import imageio
 import progressbar
 from pylab import *
-from coloring import red_lavender
+from coloring import red_lavender, subharmonics
 from mandelbrot import mandelbrot
 
 
@@ -32,14 +32,14 @@ def make_video_frame(rgb, indexing='ij', dither=1.0/256.0):
 
 
 def do_render(args, writer):
-    inside_cutoff = 2**11
-    color_map = red_lavender
+    inside_cutoff = 2**9
+    color_map = subharmonics
     for n in progressbar.progressbar(range(args.num_frames)):
         t = n / (args.num_frames - 1)
         x, y = -0.11042608495193805, -1.2321253969758166
         zoom = t * 44 - 2
 
-        image = mandelbrot(args.width, args.height, x, y, zoom, 2.5, 128, color_map=color_map, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff)
+        image = mandelbrot(args.width, args.height, x, y, zoom, 2.5, 66, color_map=color_map, anti_aliasing=args.anti_aliasing, inside_cutoff=inside_cutoff, clip_outside=True)
 
         frame = make_video_frame(image, indexing=None)
         writer.append_data(frame)

@@ -3,26 +3,26 @@ from cffi import FFI
 ffibuilder = FFI()
 
 ffibuilder.cdef(
-    "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int outside_cutoff);"
+    "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside);"
     "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double julia_cx, double julia_cy, int julia);"
 )
 
 ffibuilder.set_source(
     "_routines",
     """
-    void eval(long long *inside, double *outside, long long *outside_counter, double x, double y, double cx, double cy, int exponent, int num_iterations, int inside_cutoff, int outside_cutoff) {
+    void eval(long long *inside, double *outside, double x, double y, double cx, double cy, int exponent, int num_iterations, int inside_cutoff, int clip_outside) {
         if (inside_cutoff && inside[0] >= inside_cutoff) {
             return;
         }
-        if (outside_cutoff && outside_counter[0] >= outside_cutoff) {
-            return;
-        }
-        double r = sqrt(x*x + y*y);
+        double x2 = x*x;
+        double y2 = y*y;
+        double r = sqrt(x2 + y2);
         if (r >= 128) {
-            outside_counter[0] += 1;
-            double v = num_iterations + log(log(r))/log(exponent + 0.5);
-            if (v < outside[0]) {
-                outside[0] = v;
+            if (!clip_outside || inside[0] == 0) {
+                double v = num_iterations + log(log(r))/log(exponent + 0.5);
+                if (v < outside[0]) {
+                    outside[0] = v;
+                }
             }
             return;
         }
@@ -32,36 +32,30 @@ ffibuilder.set_source(
         }
         // Square root components
         double sx = sqrt((r + x)*0.5);
-        double sy = sqrt((r - x)*0.5);
-        if (y < 0) {
-            sy = -sy;
-        }
+        double sy = copysign(sqrt((r - x)*0.5), y);
         // Closest integer component
         if (exponent == 2) {
-            r = x;
-            x = x*x - y*y;
-            y = 2*r*y;
+            y = 2*x*y;
+            x = x2 - y2;
         } else if (exponent == 3) {
-            r = x*x;
-            x *= r - 3*y*y;
-            y *= 3*r - y*y;
+            x *= x2 - 3*y2;
+            y *= 3*x2 - y2;
         } else if (exponent == 4) {
-            r = x;
-            x = x*x - y*y;
-            y = 2*r*y;
-            r = x;
-            x = x*x - y*y;
-            y = 2*r*y;
+            y = 2*x*y;
+            x = x2 - y2;
+            y2 = y*y;
+            y = 2*x*y;
+            x = x*x - y2;
         }
         // z**(n + .5) components
         r = x;
         x = x*sx - y*sy;
         y = r*sy + y*sx;
-        eval(inside, outside, outside_counter, cx + x, cy + y, cx, cy, exponent, num_iterations-1, inside_cutoff, outside_cutoff);
-        eval(inside, outside, outside_counter, cx - x, cy - y, cx, cy, exponent, num_iterations-1, inside_cutoff, outside_cutoff);
+        eval(inside, outside, cx + x, cy + y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside);
+        eval(inside, outside, cx - x, cy - y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside);
     }
 
-    void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int outside_cutoff) {
+    void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside) {
         zoom = pow(2, -zoom) / height;
         for (size_t i = 0; i < width * height; i++) {
             double x = (i % width) + offset_x;
@@ -71,10 +65,9 @@ ffibuilder.set_source(
 
             inside[i] = 0;
             outside[i] = INFINITY;
-            long long outside_counter = 0;
-            eval(inside+i, outside+i, &outside_counter, x, y, x, y, exponent, num_iterations, inside_cutoff, outside_cutoff);
+            eval(inside+i, outside+i, x, y, x, y, exponent, num_iterations, inside_cutoff, clip_outside);
             outside[i] -= log(log(128))/log(exponent + 0.5);
-            if (outside[i] == INFINITY) {
+            if (outside[i] == INFINITY || (clip_outside && inside[i] > 0)) {
                 outside[i] = 0;
             }
         }

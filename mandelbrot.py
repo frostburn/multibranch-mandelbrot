@@ -2,7 +2,7 @@ import numpy as np
 from _routines import ffi, lib
 from threading import Thread, Lock
 
-def mandelbrot(width, height, x, y, zoom, exponent, max_iter, color_map, inside_cutoff=2048, outside_cutoff=0, anti_aliasing=2):
+def mandelbrot(width, height, x, y, zoom, exponent, max_iter, color_map, inside_cutoff=2048, clip_outside=False, anti_aliasing=2):
     lock = Lock()
 
     num_color_channels = 3
@@ -14,7 +14,7 @@ def mandelbrot(width, height, x, y, zoom, exponent, max_iter, color_map, inside_
         outside_arr = np.empty(height * width, dtype='float64')
         inside_buf = ffi.cast("long long*", inside_arr.ctypes.data)
         outside_buf = ffi.cast("double*", outside_arr.ctypes.data)
-        lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, x, y, zoom, int(exponent - 0.5), max_iter, inside_cutoff, outside_cutoff)
+        lib.mandelbrot(inside_buf, outside_buf, width, height, offset_x, offset_y, x, y, zoom, int(exponent - 0.5), max_iter, inside_cutoff, clip_outside)
 
         subpixel_image = color_map(inside_arr.reshape(height, width), outside_arr.reshape(height, width), inside_cutoff)
 

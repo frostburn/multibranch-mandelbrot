@@ -27,6 +27,12 @@ def red_lavender(inside, outside, inside_cutoff):
     return inside + outside
 
 
+def subharmonics(inside, outside, inside_cutoff):
+    outside = 0.5 + 0.5 * array([sin(outside), sin(outside/2), sin(outside/3)])
+    inside = log(inside+1)
+    inside = (0.5 + 0.5 * array([cos(inside), cos(inside/2), cos(inside/3)])) * (inside > 0)
+    return inside + outside
+
 def black_multi_edge(inside, outside, inside_cutoff):
     return array([outside, outside, outside])**0.2
 
@@ -37,3 +43,11 @@ def rainbow(r, phase, _):
 
 def gray(r, phase, _):
     return array([r, r, r]) * 1.1
+
+
+def sepia(inside, outside, inside_cutoff):
+    bg = array([0.99 + 0.001*outside, 0.95 + 0.0001*outside, 0.9 + 0.0001*outside])
+
+    inside = (array([inside, inside, inside]) * 0.0005)**0.1
+
+    return bg - inside
