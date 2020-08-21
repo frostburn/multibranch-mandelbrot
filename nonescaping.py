@@ -4,19 +4,19 @@ from threading import Thread, Lock
 from pylab import *
 
 
-def _eval(z, c, numerator, denominator, max_iter, color_map, operator):
+def _eval(z, c, numerator, denominator, max_iter, leaf_map, operator):
     if max_iter == 0:
-        return color_map(z)
+        return leaf_map(z)
     z = z + c
     theta = 2*pi*arange(denominator) / denominator
     exponent = (numerator / denominator)
     if exponent < 0:
         z += (z==0)
-    results = [_eval(exp(1j*t)*z**exponent + c, c, numerator, denominator, max_iter-1, color_map, operator) for t in theta]
+    results = [_eval(exp(1j*t)*z**exponent + c, c, numerator, denominator, max_iter-1, leaf_map, operator) for t in theta]
     return reduce(operator, results)
 
 
-def mandelbrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, color_map, operator=add, anti_aliasing=2, julia_c=1j, julia=False):
+def mandelbrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, leaf_map, color_map, operator=add, anti_aliasing=2, julia_c=1j, julia=False):
     lock = Lock()
 
     num_color_channels = 3
@@ -44,7 +44,7 @@ def mandelbrot(width, height, center_x, center_y, zoom, rotation, numerator, den
         else:
             c = z
 
-        subpixel_image = _eval(z, c, numerator, denominator, max_iter, color_map, operator)
+        subpixel_image = color_map(_eval(z, c, numerator, denominator, max_iter, leaf_map, operator))
 
         lock.acquire()
         result += subpixel_image
