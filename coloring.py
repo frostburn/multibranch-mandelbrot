@@ -37,6 +37,9 @@ def black_multi_edge(inside, outside, inside_cutoff):
     return tanh(2.7*array([outside, outside, outside])**0.25)
 
 
+def white_multi_edge(inside, outside, inside_cutoff):
+    return 1-2*arctan(4*array([outside, outside, outside])**0.25)/pi
+
 def rainbow(r, phase, _):
     return array([r * (1 + sin(phase)), r * (1 + sin(phase + 2*pi/3)), r * (1 + sin(phase + 3*pi/3))]) * 0.01
 
