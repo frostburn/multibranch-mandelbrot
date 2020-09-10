@@ -20,14 +20,14 @@ if __name__ == '__main__':
     width, height = 108*scale, 108*scale
 
     anti_aliasing = 3
-    num_total_samples = 2**33
+    num_total_samples = 2**28
 
-    max_iter = 9
+    max_iter = 5
     min_iter = max_iter - 1
 
-    zoom = 1.25
+    zoom = -3
     rotation = 0
-    x, y = 0, 0
+    x, y = 0, 0.75
 
     # image = mandelbrot(width, height, x, y, zoom, 3.5, max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=1024, clip_outside=True)
     # image = mandelbrot_generic(
@@ -37,23 +37,26 @@ if __name__ == '__main__':
     #     julia_c=(randn() + randn()*1j), julia=False
     # )
 
-    def generator(num_samples):
-        orientation = np.random.randint(0, 3) * 2*np.pi / 3.0
-        offset = np.random.randint(-15, 16) * 0.035 + np.random.randn(num_samples)*0.0005
-        c = cos(orientation)
-        s = sin(orientation)
-        l = 4*np.random.rand(num_samples) - 2
-        return c*l + s*offset + 1j*(c*offset - s*l)
+    image = []
 
-    exposure = buddhabrot(anti_aliasing*width, anti_aliasing*height, x, y, zoom, rotation, 2, 1, max_iter, min_iter, generator, num_total_samples, 16)
+    for channel in range(3):
+        def generator(num_samples):
+            theta = 2*pi*rand(num_samples)
+            rr = randn(num_samples) * 0.003
+            ri = randn(num_samples) * 0.003
+            radius = 0.4 * exp(-channel*0.1)
+            return 0.15 + radius*cos(theta) + rr + 1j*(0.2 + radius*sin(theta) + ri)
 
-    image = tanh((exposure * (3*width*height / num_total_samples)) ** 0.22)
+        exposure = buddhabrot(anti_aliasing*width, anti_aliasing*height, x, y, zoom, rotation, 5, 2, max_iter, min_iter, generator, num_total_samples, 16, julia=True)
 
-    result = image[::anti_aliasing, ::anti_aliasing]*0
-    for i in range(anti_aliasing):
-        for j in range(anti_aliasing):
-            result += image[i::anti_aliasing, j::anti_aliasing]
-    result /= anti_aliasing**2
-    image = array([result, result, result])
+        exposure = tanh((exposure * (0.4*width*height / num_total_samples)) ** 0.5)
+
+        result = exposure[::anti_aliasing, ::anti_aliasing]*0
+        for i in range(anti_aliasing):
+            for j in range(anti_aliasing):
+                result += exposure[i::anti_aliasing, j::anti_aliasing]
+        result /= anti_aliasing**2
+        image.append(result)
+    image = array(image)
 
     imsave("/tmp/out.png", make_picture_frame(image))

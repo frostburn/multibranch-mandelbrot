@@ -174,6 +174,13 @@ ffibuilder.set_source(
     }
 
     void eval_buddhabrot(double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int min_iteration, double bailout, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11) {
+        if (min_iteration <= 0) {
+            int index_x = x0 + x*dx00 + y*dx01;
+            int index_y = y0 + x*dx10 + y*dx11;
+            if (index_x >= 0 && index_x < width && index_y >= 0 && index_y < height) {
+                __sync_add_and_fetch(counts + index_x + index_y*width, 1);
+            }
+        }
         if (num_iterations == 0) {
             return;
         }
@@ -185,13 +192,6 @@ ffibuilder.set_source(
         r = pow(r, exponent*0.5);
         x = cos(theta) * r;
         y = sin(theta) * r;
-        if (min_iteration <= 0) {
-            int index_x = x0 + x*dx00 + y*dx01;
-            int index_y = y0 + x*dx10 + y*dx11;
-            if (index_x >= 0 && index_x < width && index_y >= 0 && index_y < height) {
-                __sync_add_and_fetch(counts + index_x + index_y*width, 1);
-            }
-        }
         for (int i = 0; i < denominator; ++i) {
             eval_buddhabrot(
                 roots_of_unity,
