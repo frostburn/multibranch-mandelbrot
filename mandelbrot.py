@@ -82,3 +82,42 @@ def mandelbrot_generic(width, height, center_x, center_y, zoom, rotation, numera
     result /= anti_aliasing**2
 
     return result
+
+
+def buddhabrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, min_iter, generator, num_samples, num_threads, bailout=16, chunk_size=8192, julia_c=1j, julia=False):
+    num_color_channels = 3
+    result = np.zeros((height, width), dtype="uint64")
+    result_buf = ffi.cast("unsigned long long*", result.ctypes.data)
+
+    num_samples = int(round(num_samples / num_threads))
+
+    c, s = np.cos(rotation), np.sin(rotation)
+    z = 2**zoom * height
+    dx00 = z*c
+    dx11 = z*c
+    dx01 = z*s
+    dx10 = -z*s
+    x0 = width*0.5 - dx00 * center_x - dx01 * center_y
+    y0 = height*0.5 - dx10 * center_x - dx11 * center_y
+    def accumulate_samples():
+        remaining = num_samples
+        while remaining:
+            chunk = min(remaining, chunk_size)
+            samples = generator(chunk)
+            samples_buf = ffi.cast("double*", samples.ctypes.data)
+            if julia:
+                cs = samples*0j + julia_c
+            else:
+                cs = samples
+            cs_buf = ffi.cast("double*", cs.ctypes.data)
+            lib.buddhabrot(samples_buf, cs_buf, chunk, result_buf, width, height, x0, y0, dx00, dx01, dx10, dx11, numerator, denominator, max_iter, min_iter, bailout)
+            remaining -= chunk
+
+    ts = []
+    for _ in range(num_threads):
+        ts.append(Thread(target=accumulate_samples))
+        ts[-1].start()
+    for t in ts:
+        t.join()
+
+    return result

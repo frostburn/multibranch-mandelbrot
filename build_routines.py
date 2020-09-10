@@ -5,6 +5,7 @@ ffibuilder = FFI()
 ffibuilder.cdef(
     "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside);"
     "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double outside_offset, int clip_outside, double julia_cx, double julia_cy, int julia);"
+    "void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout);"
 )
 
 ffibuilder.set_source(
@@ -172,6 +173,56 @@ ffibuilder.set_source(
         free(roots_of_unity);
     }
 
+    void eval_buddhabrot(double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int min_iteration, double bailout, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11) {
+        if (num_iterations == 0) {
+            return;
+        }
+        double r = x*x + y*y;
+        if (r > bailout) {
+            return;
+        }
+        double theta = atan2(y, x) * exponent;
+        r = pow(r, exponent*0.5);
+        x = cos(theta) * r;
+        y = sin(theta) * r;
+        if (min_iteration <= 0) {
+            int index_x = x0 + x*dx00 + y*dx01;
+            int index_y = y0 + x*dx10 + y*dx11;
+            if (index_x >= 0 && index_x < width && index_y >= 0 && index_y < height) {
+                __sync_add_and_fetch(counts + index_x + index_y*width, 1);
+            }
+        }
+        for (int i = 0; i < denominator; ++i) {
+            eval_buddhabrot(
+                roots_of_unity,
+                x*roots_of_unity[2*i] + y*roots_of_unity[2*i+1] + cx,
+                y*roots_of_unity[2*i] - x*roots_of_unity[2*i+1] + cy,
+                cx, cy, exponent, denominator, num_iterations-1, min_iteration-1, bailout,
+                counts, width, height, x0, y0, dx00, dx01, dx10, dx11
+            );
+        }
+    }
+
+    void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout) {
+        if (denominator < 0) {
+            denominator = -denominator;
+            numerator = -numerator;
+        }
+        double *roots_of_unity = malloc(2*denominator*sizeof(double));
+        for (int i = 0; i < denominator; ++i) {
+            roots_of_unity[2*i+0] = cos(i*2*M_PI/(double)denominator);
+            roots_of_unity[2*i+1] = sin(i*2*M_PI/(double)denominator);
+        }
+        double exponent = numerator / (double) denominator;
+        for (size_t i=0; i < num_samples; ++i) {
+            double x = samples[2*i];
+            double y = samples[2*i + 1];
+            double cx = c_samples[2*i];
+            double cy = c_samples[2*i + 1];
+            eval_buddhabrot(roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, min_iteration, bailout, counts, width, height, x0, y0, dx00, dx01, dx10, dx11);
+        }
+        free(roots_of_unity);
+    }
 
     """
 )
