@@ -20,14 +20,14 @@ if __name__ == '__main__':
     width, height = 108*scale, 108*scale
 
     anti_aliasing = 3
-    num_total_samples = 2**28
+    num_total_samples = 2**34
 
-    max_iter = 5
+    max_iter = 7
     min_iter = max_iter - 1
 
-    zoom = -3
-    rotation = 0
-    x, y = 0, 0.75
+    zoom = -1
+    rotation = pi*0.5
+    x, y = 0.5, 0
 
     # image = mandelbrot(width, height, x, y, zoom, 3.5, max_iter, color_map=color_map, anti_aliasing=anti_aliasing, inside_cutoff=1024, clip_outside=True)
     # image = mandelbrot_generic(
@@ -41,15 +41,11 @@ if __name__ == '__main__':
 
     for channel in range(3):
         def generator(num_samples):
-            theta = 2*pi*rand(num_samples)
-            rr = randn(num_samples) * 0.003
-            ri = randn(num_samples) * 0.003
-            radius = 0.4 * exp(-channel*0.1)
-            return 0.15 + radius*cos(theta) + rr + 1j*(0.2 + radius*sin(theta) + ri)
+            return 4*rand(num_samples)-2 + 1j*(4*rand(num_samples)-2)
 
-        exposure = buddhabrot(anti_aliasing*width, anti_aliasing*height, x, y, zoom, rotation, 5, 2, max_iter, min_iter, generator, num_total_samples, 16, julia=True)
+        exposure = buddhabrot(anti_aliasing*width, anti_aliasing*height, x, y, zoom, rotation, 5, 2, max_iter+channel, min_iter+channel, generator, num_total_samples, 16)
 
-        exposure = tanh((exposure * (0.4*width*height / num_total_samples)) ** 0.5)
+        exposure = tanh((exposure * ((channel+1)*15*width*height / num_total_samples))**0.8)
 
         result = exposure[::anti_aliasing, ::anti_aliasing]*0
         for i in range(anti_aliasing):

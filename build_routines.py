@@ -5,12 +5,40 @@ ffibuilder = FFI()
 ffibuilder.cdef(
     "void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside);"
     "void mandelbrot_generic(double *in_x_out_inside, double *in_y_out_outside, int num_samples, int numerator, int denominator, int num_iterations, int inside_cutoff, double outside_offset, int clip_outside, double julia_cx, double julia_cy, int julia);"
-    "void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout);"
+    "void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout, unsigned int seed);"
 )
 
 ffibuilder.set_source(
     "_routines",
     """
+    /* Public domain code for JKISS RNG */
+    // http://www0.cs.ucl.ac.uk/staff/d.jones/GoodPracticeRNG.pdf
+    typedef struct jkiss32
+    {
+        unsigned int x, y, z, c;
+    } jkiss32;
+
+    void jkiss32_seed(jkiss32 *gen, unsigned int seed) {
+        gen->x = seed;
+        gen->y = seed*seed + 17;
+        if (gen->y == 0) {
+            gen->y = 7;
+        }
+        gen->z = gen->y * seed + 27;
+        gen->c = (gen->z * seed + 237) % 698769068 + 1;
+    }
+
+    unsigned int jkiss32_step(jkiss32 *gen) {
+        unsigned long long t;
+        gen->x = 314527869 * gen->x + 1234567;
+        gen->y ^= gen->y << 5; gen->y ^= gen->y >> 7; gen->y ^= gen->y << 22;
+        t = 4294584393ULL * gen->z + gen->c;
+        gen->c = t >> 32;
+        gen->z = t;
+        return gen->x + gen->y + gen->z;
+    }
+    /* End code for JKISS RNG */
+
     void eval(long long *inside, double *outside, double x, double y, double cx, double cy, int exponent, int num_iterations, int inside_cutoff, int clip_outside) {
         if (inside_cutoff && inside[0] >= inside_cutoff) {
             return;
@@ -173,7 +201,7 @@ ffibuilder.set_source(
         free(roots_of_unity);
     }
 
-    void eval_buddhabrot(double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int min_iteration, double bailout, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11) {
+    void eval_buddhabrot(jkiss32 *gen, double *roots_of_unity, double x, double y, double cx, double cy, double exponent, int denominator, int num_iterations, int min_iteration, double bailout, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11) {
         if (min_iteration <= 0) {
             int index_x = x0 + x*dx00 + y*dx01;
             int index_y = y0 + x*dx10 + y*dx11;
@@ -192,18 +220,20 @@ ffibuilder.set_source(
         r = pow(r, exponent*0.5);
         x = cos(theta) * r;
         y = sin(theta) * r;
-        for (int i = 0; i < denominator; ++i) {
-            eval_buddhabrot(
-                roots_of_unity,
-                x*roots_of_unity[2*i] + y*roots_of_unity[2*i+1] + cx,
-                y*roots_of_unity[2*i] - x*roots_of_unity[2*i+1] + cy,
-                cx, cy, exponent, denominator, num_iterations-1, min_iteration-1, bailout,
-                counts, width, height, x0, y0, dx00, dx01, dx10, dx11
-            );
-        }
+
+        int i = jkiss32_step(gen) % denominator;
+        eval_buddhabrot(
+            gen, roots_of_unity,
+            x*roots_of_unity[2*i] + y*roots_of_unity[2*i+1] + cx,
+            y*roots_of_unity[2*i] - x*roots_of_unity[2*i+1] + cy,
+            cx, cy, exponent, denominator, num_iterations-1, min_iteration-1, bailout,
+            counts, width, height, x0, y0, dx00, dx01, dx10, dx11
+        );
     }
 
-    void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout) {
+    void buddhabrot(double *samples, double *c_samples, size_t num_samples, unsigned long long *counts, int width, int height, double x0, double y0, double dx00, double dx01, double dx10, double dx11, int numerator, int denominator, int num_iterations, int min_iteration, double bailout, unsigned int seed) {
+        jkiss32 gen;
+        jkiss32_seed(&gen, seed);
         if (denominator < 0) {
             denominator = -denominator;
             numerator = -numerator;
@@ -219,7 +249,7 @@ ffibuilder.set_source(
             double y = samples[2*i + 1];
             double cx = c_samples[2*i];
             double cy = c_samples[2*i + 1];
-            eval_buddhabrot(roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, min_iteration, bailout, counts, width, height, x0, y0, dx00, dx01, dx10, dx11);
+            eval_buddhabrot(&gen, roots_of_unity, x, y, cx, cy, exponent, denominator, num_iterations, min_iteration, bailout, counts, width, height, x0, y0, dx00, dx01, dx10, dx11);
         }
         free(roots_of_unity);
     }

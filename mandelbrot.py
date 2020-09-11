@@ -110,7 +110,8 @@ def buddhabrot(width, height, center_x, center_y, zoom, rotation, numerator, den
             else:
                 cs = samples
             cs_buf = ffi.cast("double*", cs.ctypes.data)
-            lib.buddhabrot(samples_buf, cs_buf, chunk, result_buf, width, height, x0, y0, dx00, dx01, dx10, dx11, numerator, denominator, max_iter, min_iter, bailout)
+            seed = np.random.randint(0, 1<<32);
+            lib.buddhabrot(samples_buf, cs_buf, chunk, result_buf, width, height, x0, y0, dx00, dx01, dx10, dx11, numerator, denominator, max_iter, min_iter, bailout, seed)
             remaining -= chunk
 
     ts = []
