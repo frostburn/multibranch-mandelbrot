@@ -27,11 +27,16 @@ if __name__ == '__main__':
 
     zoom = -1
     rotation = -pi*0.5
-    x, y = 0.75, 0
-    light_height = 1.1
-    light_angle = 0.4
+    x, y = 0.75, 0.001
+    light_height = 1.2
+    light_angle = -0.2
     light_x = cos(light_angle)
     light_y = sin(light_angle)
+
+    light2_height = 0.1
+    light2_angle = 3.1
+    light2_x = cos(light2_angle)
+    light2_y = sin(light2_angle)
 
     # def color_map(outside, dx, dy):
     #     l = (light_x*dx + light_y*dy + light_height) / (1 + light_height)
@@ -40,7 +45,7 @@ if __name__ == '__main__':
     # image = classic.mandelbrot_dx(width, height, x, y, zoom, rotation, 2.0, max_iter, color_map=color_map, anti_aliasing=anti_aliasing)
 
     def leaf_map(z, dz):
-        return abs(z), dz
+        return abs(z), z*dz.conjugate()
 
     def operator(t1, t2):
         return minimum(t1[0], t2[0]), where(t1[0] < t2[0], t1[1], t2[1])
@@ -50,10 +55,16 @@ if __name__ == '__main__':
         dz = t[1]
         dx = real(dz)
         dy = imag(dz)
-        l = maximum(0, (light_x*dx + light_y*dy + light_height) / (1 + light_height))
-        return array([0.5*r+0.5, 0.2*r+0.2 + sin(r*10)*0.1, 0.1*r+0.1 + sin(r*10-1.1)*0.2])*l*2
+        dz = 0.4
+        r = sqrt(dx*dx + dy*dy + dz*dz)
+        dx /= r
+        dy /= r
+        dz /= r
+        l = maximum(0.0, (light_x*dx + light_y*dy + dz*light_height) / (1 + light_height))
+        l2 = maximum(0.0, (light2_x*dx + light2_y*dy + dz*light2_height) / (1 + light2_height))
+        return array([0.5*r+0.5 - l2*0.1, 0.3*r+0.1 + sin(r*12)*0.1, 0.1*r+0.1 + sin(r*12-1.1)*0.1 + l2*0.1])*maximum(0.04, (l+l2 + sin(r*12)*0.1)**3*4)
 
-    image = nonescaping.mandelbrot_dx(width, height, x, y, zoom, rotation, 1, 2, max_iter, color_map=color_map, leaf_map=leaf_map, operator=operator, anti_aliasing=anti_aliasing)
+    image = nonescaping.mandelbrot_dx(width, height, x, y, zoom, rotation, 1, 2, max_iter, color_map=color_map, leaf_map=leaf_map, operator=operator, anti_aliasing=anti_aliasing, julia=False, julia_c=(0.4 - 0.42j))
 
     # image = mandelbrot_generic(
     #     width, height, x, y, zoom, 3*pi/4,

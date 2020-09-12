@@ -5,9 +5,6 @@ from util import get_mesh, threaded_anti_alias
 from pylab import *
 
 
-EPSILON = 1e-12
-
-
 def _eval(z, c, numerator, denominator, max_iter, leaf_map, operator):
     if max_iter == 0:
         return leaf_map(z)
@@ -35,11 +32,7 @@ def mandelbrot(width, height, center_x, center_y, zoom, rotation, numerator, den
 
 def _eval_dz(z, dz, c, dc, numerator, denominator, max_iter, leaf_map, operator):
     if max_iter == 0:
-        r = abs(z)
-        u = dz/(z + (r < EPSILON))
-        r = abs(u)
-        u /= r + (r < EPSILON)
-        return leaf_map(z, u)
+        return leaf_map(z, dz)
     spinors = exp(2j*pi*arange(denominator) / denominator)
     exponent = (numerator / denominator)
     z0 = z + (z==0)

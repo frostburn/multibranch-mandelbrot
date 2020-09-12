@@ -4,9 +4,6 @@ from util import get_mesh, threaded_anti_alias
 from threading import Thread, Lock
 
 
-EPSILON = 1e-12
-
-
 def escape_time(z, c, exponent, twisors, escaped):
     for i, t in enumerate(twisors):
         escaped[np.logical_and(escaped < 0, abs(z) >= 128)] = i
@@ -86,10 +83,7 @@ def mandelbrot_dx(width, height, center_x, center_y, zoom, rotation, exponent, m
         else:
             escape_time_dz(z, dz, z+0, 1 + z*0, exponent, outside, max_iter)
 
-        r = abs(z)
-        u = dz/(z + (r < EPSILON))
-        ru = abs(u)
-        u /= ru + (ru < EPSILON)
+        u = gradient_vector(z, dz)
 
         w = outside > 0
         outside[w] = np.log(np.log(r[w])) / np.log(exponent) - outside[w] + max_iter - 1 - np.log(np.log(128)) / np.log(exponent)

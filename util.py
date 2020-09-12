@@ -1,6 +1,9 @@
 from threading import Thread, Lock
 import numpy as np
 
+EPSILON = 1e-12
+
+
 def get_mesh(width, height, center_x, center_y, zoom, rotation, offset_x, offset_y):
     c, s = np.cos(rotation), np.sin(rotation)
     zoom = 2**-zoom / height
@@ -46,3 +49,11 @@ def threaded_anti_alias(generate_subpixel_image, width, height, anti_aliasing, n
     result /= anti_aliasing**2
 
     return result
+
+
+def gradient_vector(z, dz):
+    r = abs(z)
+    u = dz/(z + (r < EPSILON))
+    ru = abs(u)
+    u /= ru + (ru < EPSILON)
+    return u
