@@ -1,13 +1,16 @@
 from operator import add
 from functools import reduce
 from threading import Thread, Lock
+from util import get_mesh, threaded_anti_alias
 from pylab import *
+
+
+EPSILON = 1e-12
 
 
 def _eval(z, c, numerator, denominator, max_iter, leaf_map, operator):
     if max_iter == 0:
         return leaf_map(z)
-    z = z + c
     theta = 2*pi*arange(denominator) / denominator
     exponent = (numerator / denominator)
     if exponent < 0:
@@ -17,48 +20,47 @@ def _eval(z, c, numerator, denominator, max_iter, leaf_map, operator):
 
 
 def mandelbrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, leaf_map, color_map, operator=add, anti_aliasing=2, julia_c=1j, julia=False):
-    lock = Lock()
-
-    num_color_channels = 3
-    result = np.zeros((num_color_channels, height, width))
-
-    c_, s_ = np.cos(rotation), np.sin(rotation)
-    zoom = 2**-zoom / height
-    def accumulate_subpixels(offset_x, offset_y):
-        nonlocal result
-        x = np.arange(width, dtype='float64') + offset_x
-        y = np.arange(height, dtype='float64') + offset_y
-
-        x, y = np.meshgrid(x, y)
-
-        x = (2 * x - width) * zoom
-        y = (2 * y - height) * zoom
-
-        x, y = x*c_ + y*s_, y*c_ - x*s_
-        x += center_x
-        y += center_y
-
+    def generate_subpixel_image(offset_x, offset_y):
+        x, y = get_mesh(width, height, center_x, center_y, zoom, rotation, offset_x, offset_y)
         z = x + 1j*y
         if julia:
             c = julia_c
         else:
             c = z
 
-        subpixel_image = color_map(_eval(z, c, numerator, denominator, max_iter, leaf_map, operator))
+        return color_map(_eval(z, c, numerator, denominator, max_iter, leaf_map, operator))
 
-        lock.acquire()
-        result += subpixel_image
-        lock.release()
+    return threaded_anti_alias(generate_subpixel_image, width, height, anti_aliasing)
 
-    ts = []
-    offsets = np.arange(anti_aliasing) / anti_aliasing
-    for i in offsets:
-        for j in offsets:
-            ts.append(Thread(target=accumulate_subpixels, args=(i, j)))
-            ts[-1].start()
-    for t in ts:
-        t.join()
 
-    result /= anti_aliasing**2
+def _eval_dz(z, dz, c, dc, numerator, denominator, max_iter, leaf_map, operator):
+    if max_iter == 0:
+        r = abs(z)
+        u = dz/(z + (r < EPSILON))
+        r = abs(u)
+        u /= r + (r < EPSILON)
+        return leaf_map(z, u)
+    spinors = exp(2j*pi*arange(denominator) / denominator)
+    exponent = (numerator / denominator)
+    z0 = z + (z==0)
+    if exponent < 0:
+        z = z0
+    results = [_eval_dz(s*z**exponent + c, dz*s*exponent*z0**(exponent-1) + dc, c, dc, numerator, denominator, max_iter-1, leaf_map, operator) for s in spinors]
+    return reduce(operator, results)
 
-    return result
+
+def mandelbrot_dx(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, leaf_map, color_map, operator=add, anti_aliasing=2, julia_c=1j, julia=False):
+    def generate_subpixel_image(offset_x, offset_y):
+        x, y = get_mesh(width, height, center_x, center_y, zoom, rotation, offset_x, offset_y)
+        z = x + 1j*y
+        dz = 1 + 0j*z
+        if julia:
+            c = julia_c
+            dc = 0
+        else:
+            c = z
+            dc = 1
+
+        return color_map(_eval_dz(z, dz, c, dc, numerator, denominator, max_iter, leaf_map, operator))
+
+    return threaded_anti_alias(generate_subpixel_image, width, height, anti_aliasing)

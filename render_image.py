@@ -19,25 +19,41 @@ if __name__ == '__main__':
     # Instagram
     width, height = 108*scale, 108*scale
 
-    anti_aliasing = 2
+    anti_aliasing = 4
     # num_total_samples = 2**34
 
-    max_iter = 1000
+    max_iter = 9
     # min_iter = max_iter - 1
 
     zoom = -1
-    rotation = 0
-    x, y = -1, 0
-    light_height = 1.5
+    rotation = -pi*0.5
+    x, y = 0.75, 0
+    light_height = 1.1
     light_angle = 0.4
     light_x = cos(light_angle)
     light_y = sin(light_angle)
 
-    def color_map(outside, dx, dy):
-        l = (light_x*dx + light_y*dy + light_height) / (1 + light_height)
-        return array([outside + 700*(outside==0), 0.5*outside + 2*(outside==0), 0.2*outside + 3*(outside==0)])*l*0.0008 + (outside==0)*0.05
+    # def color_map(outside, dx, dy):
+    #     l = (light_x*dx + light_y*dy + light_height) / (1 + light_height)
+    #     return array([outside + 700*(outside==0), 0.5*outside + 2*(outside==0), 0.2*outside + 3*(outside==0)])*l*0.0008 + (outside==0)*0.05
 
-    image = classic.mandelbrot_dx(width, height, x, y, zoom, rotation, 2.0, max_iter, color_map=color_map, anti_aliasing=anti_aliasing)
+    # image = classic.mandelbrot_dx(width, height, x, y, zoom, rotation, 2.0, max_iter, color_map=color_map, anti_aliasing=anti_aliasing)
+
+    def leaf_map(z, dz):
+        return abs(z), dz
+
+    def operator(t1, t2):
+        return minimum(t1[0], t2[0]), where(t1[0] < t2[0], t1[1], t2[1])
+
+    def color_map(t):
+        r = t[0]
+        dz = t[1]
+        dx = real(dz)
+        dy = imag(dz)
+        l = maximum(0, (light_x*dx + light_y*dy + light_height) / (1 + light_height))
+        return array([0.5*r+0.5, 0.2*r+0.2 + sin(r*10)*0.1, 0.1*r+0.1 + sin(r*10-1.1)*0.2])*l*2
+
+    image = nonescaping.mandelbrot_dx(width, height, x, y, zoom, rotation, 1, 2, max_iter, color_map=color_map, leaf_map=leaf_map, operator=operator, anti_aliasing=anti_aliasing)
 
     # image = mandelbrot_generic(
     #     width, height, x, y, zoom, 3*pi/4,
