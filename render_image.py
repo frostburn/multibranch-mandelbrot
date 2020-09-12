@@ -19,10 +19,10 @@ if __name__ == '__main__':
     # Instagram
     width, height = 108*scale, 108*scale
 
-    anti_aliasing = 6
+    anti_aliasing = 2
     # num_total_samples = 2**34
 
-    max_iter = 16
+    max_iter = 1000
     # min_iter = max_iter - 1
 
     zoom = -1
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     def color_map(outside, dx, dy):
         l = (light_x*dx + light_y*dy + light_height) / (1 + light_height)
-        return array([outside + 7*(outside==0), 0.5*outside + 2*(outside==0), 0.2*outside + 3*(outside==0)])*l*0.08 + (outside==0)*0.05
+        return array([outside + 700*(outside==0), 0.5*outside + 2*(outside==0), 0.2*outside + 3*(outside==0)])*l*0.0008 + (outside==0)*0.05
 
     image = classic.mandelbrot_dx(width, height, x, y, zoom, rotation, 2.0, max_iter, color_map=color_map, anti_aliasing=anti_aliasing)
 
