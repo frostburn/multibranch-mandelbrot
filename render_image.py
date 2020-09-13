@@ -16,23 +16,25 @@ def make_picture_frame(rgb, dither=1.0/256.0):
 
 
 if __name__ == '__main__':
-    scale = 5
+    # scale = 5
     # Instagram
-    width, height = 108*scale, 108*scale
+    # width, height = 108*scale, 108*scale
+    scale = 9*10
+    width, height = 7*scale, 12*scale
 
-    anti_aliasing = 4
+    anti_aliasing = 6
     # num_total_samples = 2**34
 
-    phi = (1 + sqrt(5)) * 0.5
-    golden_angle = 2j*pi / phi
-    max_iter = 1<<8
+    # phi = (1 + sqrt(5)) * 0.5
+    # golden_angle = 2j*pi / phi
+    max_iter = 1<<9
     # twisors = [exp(1j*pi*i) for i in range(max_iter)]
-    twisors = max_iter
+    # twisors = max_iter
     # min_iter = max_iter - 1
 
-    zoom = -0.5
-    rotation = pi*0.5
-    x, y = -0.12, 0.001
+    zoom = -0.8
+    rotation = -0.1
+    x, y = 0, 0.001
     # light_height = 1.2
     # light_angle = -0.2
     # light_x = cos(light_angle)
@@ -47,25 +49,38 @@ if __name__ == '__main__':
     #     l = (light_x*dx + light_y*dy + light_height) / (1 + light_height)
     #     return array([outside + 700*(outside==0), 0.5*outside + 2*(outside==0), 0.2*outside + 3*(outside==0)])*l*0.0008 + (outside==0)*0.05
 
-    inside_zero = 10000
+    def illuminate(dx, dy, dz=0.5, light_angle=0.5, light_elevation=1.2):
+        r = sqrt(dx*dx + dy*dy + dz*dz)
+        dx /= r
+        dy /= r
+        dz /= r
+        return maximum(0.0, sin(light_elevation)*cos(light_angle)*dx + sin(light_elevation)*sin(light_angle)*dy + cos(light_elevation)*dz)
 
-    def inside_operator(min_r, z):
-        return minimum(min_r, abs(z))
+    inside_zero = (10000, 0j)
 
-    def outside_color_map(outside):
-        r, g, b = color_gradients.cool(outside**2 * 0.01)
-        return 0.8 + 0.2*array([r+g, g+b, b])
+    def inside_operator(t, z, dz):
+        min_r, min_dz = t
+        return minimum(min_r, abs(z)), where(abs(z) < min_r, z*dz.conjugate(), min_dz)
 
-    def inside_color_map(r):
-        return color_gradients.platinum(r)
+    def inside_color_map(t):
+        r, dz = t
+        dz += 0.1*dz/abs(dz)
+        l = illuminate(real(dz), imag(dz))
+        return (color_gradients.platinum(1+r*3)*0.9 + array([r*0, exp(-4*r), -0.2*r*exp(-2*r)])) * (0.85*l + 0.1)
 
-    image = classic.mandelbrot(
-        width, height, x, y, zoom, rotation, 7, twisors,
+    def outside_color_map(outside, dx, dy):
+        l = illuminate(dx, dy)
+        return (color_gradients.platinum(outside) + array([15*exp(-(0.003*outside)**4), -10*exp(-(0.0028*outside)**4), -5*exp(-(0.0041*outside)**2)])) * (0.9*l + 0.1)
+
+    image = classic.mandelbrot_dx(
+        width, height, x, y, zoom, rotation, 6, max_iter,
         inside_zero=inside_zero,
         inside_operator=inside_operator,
         inside_color_map=inside_color_map,
         outside_color_map=outside_color_map,
-        anti_aliasing=anti_aliasing
+        anti_aliasing=anti_aliasing,
+        julia=True,
+        julia_c=0.6889+0.44989j
     )
 
     # def leaf_map(z, dz):
