@@ -1,67 +1,40 @@
 import numpy as np
 from _routines import ffi, lib
-from util import get_mesh, threaded_anti_alias
+from util import get_mesh, threaded_anti_alias, gradient_vector
 from threading import Thread, Lock
 
 
-def escape_time(z, c, exponent, twisors, escaped):
+def escape_time(z, c, exponent, twisors, escaped, inside, inside_operator):
     for i, t in enumerate(twisors):
         escaped[np.logical_and(escaped < 0, abs(z) >= 128)] = i
         s = escaped < 0
         z[s] = t*z[s]**exponent + c[s]
+        inside[s] = inside_operator(inside[s], z[s])
 
 
-def mandelbrot(width, height, center_x, center_y, zoom, rotation, exponent, twisors, color_map, anti_aliasing=2, julia_c=1j, julia=False):
-    lock = Lock()
+def mandelbrot(width, height, center_x, center_y, zoom, rotation, exponent, twisors, inside_zero, inside_operator, inside_color_map, outside_color_map, anti_aliasing=2, julia_c=1j, julia=False):
+    if isinstance(twisors, int):
+        twisors = [1] * twisors
 
-    num_color_channels = 3
-    result = np.zeros((num_color_channels, height, width))
-
-    c, s = np.cos(rotation), np.sin(rotation)
-    zoom = 2**-zoom / height
-    def accumulate_subpixels(offset_x, offset_y):
-        nonlocal result
-        x = np.arange(width, dtype='float64') + offset_x
-        y = np.arange(height, dtype='float64') + offset_y
-
-        x, y = np.meshgrid(x, y)
-
-        x = (2 * x - width) * zoom
-        y = (2 * y - height) * zoom
-
-        x, y = x*c + y*s, y*c - x*s
-        x += center_x
-        y += center_y
-
+    def generate_subpixel_image(offset_x, offset_y):
+        x, y = get_mesh(width, height, center_x, center_y, zoom, rotation, offset_x, offset_y)
         z = x + 1j*y
+        inside = inside_operator(inside_zero, z)
         outside = x*0 - 1
         if julia:
-            escape_time(z, z*0 + julia_c, exponent, twisors, outside)
+            escape_time(z, z*0 + julia_c, exponent, twisors, outside, inside, inside_operator)
         else:
-            escape_time(z, z+0, exponent, twisors, outside)
+            escape_time(z, z+0, exponent, twisors, outside, inside, inside_operator)
 
         w = outside > 0
-        outside[w] -= np.log(np.log(abs(z[w]))) / np.log(exponent)
-        outside[~w] = len(twisors) - np.log(np.log(128)*2) / np.log(exponent)  # TODO: Fix
+        outside[w] = np.log(np.log(abs(z[w]))) / np.log(exponent) - outside[w] + len(twisors) - 1 - np.log(np.log(128)) / np.log(exponent)
+        outside[~w] = 0
 
-        subpixel_image = color_map(outside)
+        result = outside_color_map(outside)
+        result[:,~w] = inside_color_map(inside[~w])
+        return result
 
-        lock.acquire()
-        result += subpixel_image
-        lock.release()
-
-    ts = []
-    offsets = np.arange(anti_aliasing) / anti_aliasing
-    for i in offsets:
-        for j in offsets:
-            ts.append(Thread(target=accumulate_subpixels, args=(i, j)))
-            ts[-1].start()
-    for t in ts:
-        t.join()
-
-    result /= anti_aliasing**2
-
-    return result
+    return threaded_anti_alias(generate_subpixel_image, width, height, anti_aliasing)
 
 
 def escape_time_dz(z, dz, c, dc, exponent, escaped, max_iter):
@@ -86,7 +59,7 @@ def mandelbrot_dx(width, height, center_x, center_y, zoom, rotation, exponent, m
         u = gradient_vector(z, dz)
 
         w = outside > 0
-        outside[w] = np.log(np.log(r[w])) / np.log(exponent) - outside[w] + max_iter - 1 - np.log(np.log(128)) / np.log(exponent)
+        outside[w] = np.log(np.log(abs(z[w]))) / np.log(exponent) - outside[w] + max_iter - 1 - np.log(np.log(128)) / np.log(exponent)
         outside[~w] = 0
 
         return color_map(outside, np.real(u), np.imag(u))
