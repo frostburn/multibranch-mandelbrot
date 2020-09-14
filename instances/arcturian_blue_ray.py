@@ -26,25 +26,25 @@ if __name__ == '__main__':
     for i in range(5):
         np.random.seed(i+2*108)
         c1, c2, c3, c4, c5 = np.random.rand(5)
+        julia_c = (0.5*c4 + 0.5*c5*1j)
 
         def leaf_map(z):
-            return abs(z)
+            return abs(z-julia_c)
 
-        def operator(t1, t2):
-            return t1 + t2
+        def operator(r1, r2):
+            return r1 + r2
 
-        def color_map(t):
-            z = t
-            r = abs(z)-130
+        def color_map(r):
+            r -= 130
             rgb = array([0.61*r*c1, 0.1*r*c2, r*c3])
             return rgb*0.0081
 
         image_ = nonescaping.mandelbrot(
-            width, height, x, y, zoom, 0.24*pi,
+            width, height, x + real(julia_c), y + imag(julia_c), zoom, 0.24*pi,
             -2, 2,
             max_iter, anti_aliasing=anti_aliasing,
             leaf_map=leaf_map, operator=operator, color_map=color_map,
-            julia=True, julia_c=(0.5*c4 + 0.5*c5*1j)
+            julia=True, julia_c=julia_c*2
         )
 
         if image is None:
