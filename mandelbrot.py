@@ -84,7 +84,7 @@ def mandelbrot_generic(width, height, center_x, center_y, zoom, rotation, numera
     return result
 
 
-def buddhabrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, max_iter, min_iter, generator, num_samples, num_threads, bailout=16, chunk_size=8192, julia_c=1j, julia=False):
+def buddhabrot_exposure(width, height, center_x, center_y, zoom, rotation, numerator, denominator, num_samples, min_iter, max_iter, generator, num_threads=16, bailout=16, chunk_size=8192, julia_c=1j, julia=False):
     num_color_channels = 3
     result = np.zeros((height, width), dtype="uint64")
     result_buf = ffi.cast("unsigned long long*", result.ctypes.data)
@@ -122,3 +122,20 @@ def buddhabrot(width, height, center_x, center_y, zoom, rotation, numerator, den
         t.join()
 
     return result
+
+
+def buddhabrot(width, height, center_x, center_y, zoom, rotation, numerator, denominator, num_samples, exposures, color_map, anti_aliasing=2, num_threads=16, bailout=16, chunk_size=8192, julia_c=1j, julia=False):
+    exposed = []
+    for min_iter, max_iter, generator in exposures:
+        exposed.append(buddhabrot_exposure(
+            width*anti_aliasing, height*anti_aliasing, center_x, center_y, zoom, rotation, numerator, denominator, num_samples,
+            min_iter, max_iter, generator, num_threads, bailout, chunk_size, julia_c, julia))
+    result = color_map(exposed)
+
+    image = result[:, ::anti_aliasing, ::anti_aliasing]*0
+    for i in range(anti_aliasing):
+        for j in range(anti_aliasing):
+            image += result[:, i::anti_aliasing, j::anti_aliasing]
+    image /= anti_aliasing**2
+
+    return image
