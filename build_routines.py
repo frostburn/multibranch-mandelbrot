@@ -39,7 +39,7 @@ ffibuilder.set_source(
     }
     /* End code for JKISS RNG */
 
-    void eval(long long *inside, double *outside, double x, double y, double cx, double cy, int exponent, int num_iterations, int inside_cutoff, int clip_outside) {
+    void eval(long long *inside, double *outside, double x, double y, double cx, double cy, int exponent, int num_iterations, int inside_cutoff, int clip_outside, double i_log_exponent) {
         if (inside_cutoff && inside[0] >= inside_cutoff) {
             return;
         }
@@ -48,7 +48,7 @@ ffibuilder.set_source(
         double r = sqrt(x2 + y2);
         if (r >= 128) {
             if (!clip_outside || inside[0] == 0) {
-                double v = num_iterations + log(log(r))/log(exponent + 0.5);
+                double v = num_iterations + log(log(r))*i_log_exponent;
                 if (v < outside[0]) {
                     outside[0] = v;
                 }
@@ -64,7 +64,7 @@ ffibuilder.set_source(
         double sy = copysign(sqrt((r - x)*0.5), y);
         // Closest integer component
         if (exponent == 2) {
-            y = 2*x*y;
+            y *= 2*x;
             x = x2 - y2;
         } else if (exponent == 3) {
             x *= x2 - 3*y2;
@@ -80,8 +80,8 @@ ffibuilder.set_source(
         r = x;
         x = x*sx - y*sy;
         y = r*sy + y*sx;
-        eval(inside, outside, cx + x, cy + y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside);
-        eval(inside, outside, cx - x, cy - y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside);
+        eval(inside, outside, cx + x, cy + y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside, i_log_exponent);
+        eval(inside, outside, cx - x, cy - y, cx, cy, exponent, num_iterations-1, inside_cutoff, clip_outside, i_log_exponent);
     }
 
     void mandelbrot(long long *inside, double *outside, int width, int height, double offset_x, double offset_y, double center_x, double center_y, double zoom, int exponent, int num_iterations, int inside_cutoff, int clip_outside) {
@@ -94,8 +94,10 @@ ffibuilder.set_source(
 
             inside[i] = 0;
             outside[i] = INFINITY;
-            eval(inside+i, outside+i, x, y, x, y, exponent, num_iterations, inside_cutoff, clip_outside);
-            outside[i] -= log(log(128))/log(exponent + 0.5);
+            double i_log_exponent = 1.0/log(exponent + 0.5);
+            eval(inside+i, outside+i, x, y, x, y, exponent, num_iterations, inside_cutoff, clip_outside, i_log_exponent);
+            // log(log(128)) == 1.5793972284736488
+            outside[i] -= 1.5793972284736488*i_log_exponent;
             if (outside[i] == INFINITY || (clip_outside && inside[i] > 0)) {
                 outside[i] = 0;
             }
